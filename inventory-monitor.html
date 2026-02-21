@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STOCKPILE INVENTORY — Global Commodity Stock Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&family=Syne+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f2ede6;
+    --surface: #ede8e0;
+    --surface2: #e4ddd3;
+    --border: #c8bfb0;
+    --border-dark: #a89880;
+    --text: #1a1410;
+    --muted: #8a7d6e;
+    --accent: #c0392b;
+    --accent2: #e67e22;
+    --green: #27ae60;
+    --red: #c0392b;
+    --yellow: #d4a017;
+    --ink: #2c2218;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* Subtle paper texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23f2ede6'/%3E%3Ccircle cx='1' cy='1' r='0.5' fill='%23c8bfb0' opacity='0.3'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 3px solid var(--ink);
+    padding: 24px 0 20px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .logo-block {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .logo-eyebrow {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 4px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 28px;
+    letter-spacing: -0.5px;
+    color: var(--ink);
+    line-height: 1;
+  }
+
+  .logo span {
+    color: var(--accent);
+  }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .live-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent);
+    color: white;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    padding: 5px 10px;
+  }
+
+  .live-dot {
+    width: 5px;
+    height: 5px;
+    background: white;
+    border-radius: 50%;
+    animation: blink 1.4s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  .timestamp {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* ── HERO BAR ── */
+  .hero-bar {
+    border-bottom: 1px solid var(--border-dark);
+    padding: 32px 0 28px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 24px;
+    margin-bottom: 0;
+  }
+
+  .hero-title {
+    font-weight: 800;
+    font-size: clamp(40px, 7vw, 80px);
+    line-height: 0.95;
+    letter-spacing: -2px;
+    color: var(--ink);
+  }
+
+  .hero-title em {
+    font-style: normal;
+    color: var(--accent);
+    display: block;
+  }
+
+  .hero-desc {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.7;
+    max-width: 240px;
+    text-align: right;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── SUMMARY ROW ── */
+  .summary-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-left: 3px solid var(--ink);
+    margin: 0;
+  }
+
+  .summary-cell {
+    border-right: 1px solid var(--border-dark);
+    border-bottom: 3px solid var(--ink);
+    padding: 20px 24px;
+  }
+
+  .summary-cell:last-child {
+    border-right: 3px solid var(--ink);
+  }
+
+  .summary-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .summary-value {
+    font-weight: 800;
+    font-size: 32px;
+    line-height: 1;
+    letter-spacing: -1px;
+  }
+
+  .summary-sub {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* ── FILTERS ── */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    border-bottom: 1px solid var(--border-dark);
+    margin-bottom: 0;
+  }
+
+  .filter-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    padding: 14px 20px;
+    border-right: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+
+  .filter-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    padding: 14px 20px;
+    border: none;
+    border-right: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+
+  .filter-btn:hover { background: var(--surface2); color: var(--ink); }
+  .filter-btn.active { background: var(--ink); color: var(--bg); }
+
+  /* ── MAIN GRID ── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    border-left: 1px solid var(--border-dark);
+    border-top: 1px solid var(--border-dark);
+  }
+
+  .card {
+    border-right: 1px solid var(--border-dark);
+    border-bottom: 1px solid var(--border-dark);
+    padding: 24px;
+    position: relative;
+    background: var(--bg);
+    transition: background 0.2s;
+    opacity: 0;
+    animation: slideUp 0.35s ease forwards;
+  }
+
+  .card:hover { background: var(--surface); }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Left accent stripe */
+  .card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--card-color, var(--border));
+  }
+
+  /* Data type badge */
+  .data-type-badge {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    padding: 3px 7px;
+    text-transform: uppercase;
+  }
+
+  .badge-inventory {
+    background: var(--ink);
+    color: var(--bg);
+  }
+
+  .badge-price {
+    border: 1px solid var(--border-dark);
+    color: var(--muted);
+  }
+
+  /* Card header */
+  .card-top {
+    margin-bottom: 20px;
+    padding-right: 80px;
+  }
+
+  .card-category {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .card-name {
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+    color: var(--ink);
+  }
+
+  .card-context {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Signal */
+  .signal-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .signal-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    padding: 4px 10px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .sig-low    { background: #d5f5e3; color: #1e8449; border: 1px solid #27ae60; }
+  .sig-normal { background: #fef9e7; color: #9a7d0a; border: 1px solid #d4a017; }
+  .sig-high   { background: #fadbd8; color: #922b21; border: 1px solid #c0392b; }
+
+  .signal-desc {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  /* Big number */
+  .current-value {
+    font-weight: 800;
+    font-size: 36px;
+    letter-spacing: -1px;
+    line-height: 1;
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+
+  .current-unit {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+
+  /* Gauge bar */
+  .gauge-wrap {
+    margin-bottom: 16px;
+  }
+
+  .gauge-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .gauge-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .gauge-track {
+    height: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    position: relative;
+  }
+
+  .gauge-fill {
+    height: 100%;
+    transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
+    position: relative;
+  }
+
+  .gauge-avg-marker {
+    position: absolute;
+    top: -4px;
+    width: 1px;
+    height: 14px;
+    background: var(--ink);
+  }
+
+  .gauge-avg-label {
+    position: absolute;
+    top: 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 7px;
+    color: var(--ink);
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+
+  /* Sparkline */
+  .sparkline-wrap {
+    margin-bottom: 16px;
+  }
+
+  .sparkline-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  canvas.spark {
+    width: 100%;
+    height: 44px;
+    display: block;
+  }
+
+  /* Stats */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-top: 4px;
+  }
+
+  .stat-cell {
+    background: var(--bg);
+    padding: 8px 10px;
+  }
+
+  .stat-cell:hover { background: var(--surface2); }
+
+  .stat-l {
+    font-family: 'Space Mono', monospace;
+    font-size: 7px;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+
+  .stat-v {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .stat-v.up   { color: var(--green); }
+  .stat-v.down { color: var(--red); }
+
+  /* Source footer */
+  .card-footer {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .source-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .updated-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: var(--border-dark);
+    letter-spacing: 0.5px;
+  }
+
+  /* Loading / Error */
+  .state-msg {
+    grid-column: 1 / -1;
+    padding: 80px 40px;
+    text-align: center;
+    border-right: 1px solid var(--border-dark);
+    border-bottom: 1px solid var(--border-dark);
+  }
+
+  .state-msg-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .state-msg-sub {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--border-dark);
+    line-height: 1.8;
+  }
+
+  .state-msg-sub code {
+    color: var(--accent);
+    background: #fadbd8;
+    padding: 2px 6px;
+  }
+
+  /* Footer */
+  footer {
+    border-top: 3px solid var(--ink);
+    padding: 20px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0;
+  }
+
+  .footer-left {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .footer-sources {
+    display: flex;
+    gap: 8px;
+  }
+
+  .footer-chip {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    border: 1px solid var(--border-dark);
+    padding: 3px 8px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .footer-chip.real {
+    border-color: var(--ink);
+    color: var(--ink);
+    background: var(--surface2);
+  }
+
+  @media (max-width: 640px) {
+    .hero-bar { grid-template-columns: 1fr; }
+    .hero-desc { text-align: left; }
+    .summary-row { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── CLIMA ── */
+  .climate-section {
+    margin-top: 16px;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+
+  .climate-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .climate-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .climate-overall {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .clim-favorable { background: #d5f5e3; color: #1e8449; border: 1px solid #27ae60; }
+  .clim-neutral   { background: #fef9e7; color: #9a7d0a; border: 1px solid #d4a017; }
+  .clim-stress    { background: #fadbd8; color: #922b21; border: 1px solid #c0392b; }
+
+  .climate-zones {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .climate-zone {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px;
+    align-items: start;
+  }
+
+  .climate-zone.critical {
+    border-color: var(--accent);
+    background: #fadbd820;
+  }
+
+  .zone-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: 0.5px;
+  }
+
+  .zone-role {
+    font-family: 'Space Mono', monospace;
+    font-size: 7px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .zone-stats {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  .zone-stress {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    text-align: right;
+    padding: 2px 6px;
+  }
+
+  .stress-ok       { color: #1e8449; }
+  .stress-drought  { color: #922b21; font-weight: 700; }
+  .stress-flood    { color: #1a5276; font-weight: 700; }
+  .stress-heat     { color: #922b21; font-weight: 700; }
+  .stress-cold     { color: #1a5276; font-weight: 700; }
+
+  .critical-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 7px;
+    background: var(--accent);
+    color: white;
+    padding: 1px 5px;
+    margin-top: 3px;
+    display: inline-block;
+  }
+
+  .climate-loading {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    padding: 8px 0;
+    letter-spacing: 1px;
+  }
+
+
+  /* ── NOTICIAS ── */
+  .news-section {
+    margin-top: 16px;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+
+  .news-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .news-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .news-item {
+    border-left: 2px solid var(--border-dark);
+    padding: 6px 8px;
+    text-decoration: none;
+    display: block;
+    transition: background 0.15s;
+  }
+
+  .news-item:hover {
+    background: var(--surface2);
+    border-left-color: var(--card-color, var(--accent));
+  }
+
+  .news-item-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.3;
+    margin-bottom: 3px;
+  }
+
+  .news-item-meta {
+    font-family: 'Space Mono', monospace;
+    font-size: 7px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  .news-loading {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    padding: 8px 0;
+    letter-spacing: 1px;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <div class="logo-block">
+      <span class="logo-eyebrow">Global Commodity Stock Monitor</span>
+      <div class="logo">STOCKPILE <span>INVENTORY</span></div>
+    </div>
+    <div class="header-meta">
+      <div class="live-pill"><div class="live-dot"></div>LIVE DATA</div>
+      <span class="timestamp" id="ts"></span>
+    </div>
+  </header>
+
+  <div class="hero-bar">
+    <div class="hero-title">
+      PHYSICAL<br>
+      STOCK<br>
+      <em>LEVELS</em>
+    </div>
+    <div class="hero-desc">
+      Inventarios físicos reales vs.<br>
+      promedio histórico 5 años.<br>
+      Fuentes: EIA (petróleo, gas),<br>
+      clima para zonas productoras de granos.
+    </div>
+  </div>
+
+  <div class="summary-row" id="summary">
+    <div class="summary-cell">
+      <div class="summary-label">Cargando...</div>
+      <div class="summary-value">—</div>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <span class="filter-label">FILTRAR →</span>
+    <button class="filter-btn active" onclick="filterCards('all',this)">TODOS</button>
+    <button class="filter-btn" onclick="filterCards('energia',this)">ENERGÍA</button>
+    <button class="filter-btn" onclick="filterCards('metales',this)">METALES</button>
+    <button class="filter-btn" onclick="filterCards('granos',this)">GRANOS</button>
+    <button class="filter-btn" onclick="filterCards('inventory',this)">SOLO INVENTARIO REAL</button>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>
+    <span class="footer-left">STOCKPILE INVENTORY v3.0 — Actualización automática cada 5 min</span>
+    <div class="footer-sources">
+      <span class="footer-chip real">EIA</span>
+      <span class="footer-chip real">USDA</span>
+      <span class="footer-chip">COMEX</span>
+      <span class="footer-chip">CBOT</span>
+      <span class="footer-chip">NYSE</span>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+// ── CONFIG ───────────────────────────────────────────────────────────────────
+const API_BASE = 'http://localhost:8001';
+
+let allData = [];
+let currentFilter = 'all';
+
+// ── FETCH ─────────────────────────────────────────────────────────────────────
+let climateData = {};
+let newsData = {};
+
+async function fetchNewsForCard(commodityId) {
+  if (newsData[commodityId]) return; // ya cargado
+  try {
+    const res = await fetch(`${API_BASE}/news/${commodityId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    newsData[commodityId] = data;
+    // Actualizar el widget de noticias en la card si existe
+    const el = document.getElementById(`news-${commodityId}`);
+    if (el) el.innerHTML = renderNewsContent(data);
+  } catch(e) { /* silencioso */ }
+}
+
+async function fetchAll() {
+  showLoading();
+  try {
+    const [comRes, climRes] = await Promise.all([
+      fetch(`${API_BASE}/commodities`),
+      fetch(`${API_BASE}/climate`),
+    ]);
+    if (!comRes.ok) throw new Error(`HTTP ${comRes.status}`);
+    allData = await comRes.json();
+    if (climRes.ok) {
+      const climArr = await climRes.json();
+      climArr.forEach(c => { climateData[c.commodity_id] = c; });
+    }
+    renderSummary(allData);
+    renderCards(currentFilter);
+  } catch(err) {
+    showError(err.message);
+  }
+}
+
+// ── RENDER SUMMARY ────────────────────────────────────────────────────────────
+function renderSummary(data) {
+  const low     = data.filter(c => c.signal === 'low').length;
+  const high    = data.filter(c => c.signal === 'high').length;
+  const real    = data.filter(c => c.dataType === 'inventory').length;
+  const avgPct  = Math.round(data.reduce((a,c) => a + c.percentile, 0) / data.length);
+
+  document.getElementById('summary').innerHTML = `
+    <div class="summary-cell">
+      <div class="summary-label">Commodities monitoreados</div>
+      <div class="summary-value">${data.length}</div>
+      <div class="summary-sub">activos</div>
+    </div>
+    <div class="summary-cell">
+      <div class="summary-label">Inventario real (EIA/USDA)</div>
+      <div class="summary-value" style="color:var(--ink)">${real}</div>
+      <div class="summary-sub">fuentes oficiales</div>
+    </div>
+    <div class="summary-cell">
+      <div class="summary-label">Stocks por debajo promedio</div>
+      <div class="summary-value" style="color:var(--green)">${low}</div>
+      <div class="summary-sub">señal BAJO</div>
+    </div>
+    <div class="summary-cell">
+      <div class="summary-label">Stocks sobre promedio</div>
+      <div class="summary-value" style="color:var(--red)">${high}</div>
+      <div class="summary-sub">señal ALTO</div>
+    </div>
+  `;
+}
+
+// ── RENDER CARDS ──────────────────────────────────────────────────────────────
+function renderCards(filter) {
+  const grid = document.getElementById('grid');
+  let data = allData;
+
+  if (filter === 'inventory') {
+    data = allData.filter(c => c.dataType === 'inventory');
+  } else if (filter !== 'all') {
+    data = allData.filter(c => c.cat === filter);
+  }
+
+  grid.innerHTML = '';
+
+  if (data.length === 0) {
+    grid.innerHTML = `<div class="state-msg">
+      <div class="state-msg-title">SIN DATOS PARA ESTE FILTRO</div>
+    </div>`;
+    return;
+  }
+
+  data.forEach((c, i) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.setProperty('--card-color', c.accent);
+    card.style.animationDelay = `${i * 0.04}s`;
+
+    const sigCls   = c.signal === 'low' ? 'sig-low' : c.signal === 'high' ? 'sig-high' : 'sig-normal';
+    const sigLabel = c.signal === 'low' ? 'BAJO' : c.signal === 'high' ? 'ALTO' : 'NORMAL';
+    const sigDesc  = c.signal === 'low'
+      ? `${Math.round((1 - c.current/c.avg5y)*100)}% bajo promedio 5Y`
+      : c.signal === 'high'
+      ? `${Math.round((c.current/c.avg5y - 1)*100)}% sobre promedio 5Y`
+      : 'Dentro del rango histórico';
+
+    const changeUp  = c.weeklyChange >= 0;
+    const avgPct    = Math.round(((c.avg5y - c.min5y) / (c.max5y - c.min5y)) * 100);
+    const isReal    = c.dataType === 'inventory';
+
+    const updatedDate = new Date(c.lastUpdated).toLocaleDateString('es-AR', {day:'2-digit', month:'short'});
+
+    card.innerHTML = `
+      <div class="data-type-badge ${isReal ? 'badge-inventory' : 'badge-price'}">
+        ${isReal ? '▣ INVENTARIO REAL' : '◈ PRECIO (PROXY)'}
+      </div>
+
+      <div class="card-top">
+        <div class="card-category">${c.category}</div>
+        <div class="card-name">${c.name}</div>
+        <div class="card-context">${c.context}</div>
+      </div>
+
+      <div class="signal-row">
+        <span class="signal-badge ${sigCls}">${sigLabel}</span>
+        <span class="signal-desc">${sigDesc}</span>
+      </div>
+
+      <div class="current-value">${formatNum(c.current)}</div>
+      <div class="current-unit">${c.unit}</div>
+
+      <div class="gauge-wrap">
+        <div class="gauge-labels">
+          <span class="gauge-label">MÍN 5Y: ${formatNum(c.min5y)}</span>
+          <span class="gauge-label">MÁX 5Y: ${formatNum(c.max5y)}</span>
+        </div>
+        <div class="gauge-track">
+          <div class="gauge-fill" style="width:${c.percentile}%; background:${c.accent};"></div>
+          <div class="gauge-avg-marker" style="left:${avgPct}%">
+            <div class="gauge-avg-label">PROM</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sparkline-wrap">
+        <div class="sparkline-label">Tendencia — últimas 10 semanas</div>
+        <canvas class="spark" data-history='${JSON.stringify(c.history)}' data-color='${c.accent}' height="44"></canvas>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-cell">
+          <div class="stat-l">Var. semanal</div>
+          <div class="stat-v ${changeUp ? 'up' : 'down'}">${changeUp?'+':''}${c.weeklyChange}%</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-l">Percentil 5Y</div>
+          <div class="stat-v">${c.percentile}°</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-l">Prom. 5 años</div>
+          <div class="stat-v">${formatNum(c.avg5y)}</div>
+        </div>
+      </div>
+
+      ${c.cat === 'granos' ? renderClimateSection(c.id) : ''}
+      <div class="news-section" id="news-${c.id}">
+        <div class="news-loading">CARGANDO NOTICIAS...</div>
+      </div>
+
+      <div class="card-footer">
+        <span class="source-tag">FUENTE: ${c.source}</span>
+        <span class="updated-tag">Act. ${updatedDate}</span>
+      </div>
+    `;
+
+    grid.appendChild(card);
+  });
+
+  // Draw sparklines
+  setTimeout(() => {
+    grid.querySelectorAll('canvas.spark').forEach(canvas => {
+      const history = JSON.parse(canvas.dataset.history);
+      const color   = canvas.dataset.color;
+      drawSpark(canvas, history, color);
+    });
+    // Cargar noticias para cards visibles (con delay para no saturar la API)
+    data.forEach((c, i) => {
+      setTimeout(() => fetchNewsForCard(c.id), i * 300);
+    });
+  }, 50);
+}
+
+// ── CLIMATE RENDER ───────────────────────────────────────────────────────────
+function renderClimateSection(commodityId) {
+  const clim = climateData[commodityId];
+  if (!clim) return `<div class="climate-section"><div class="climate-loading">CARGANDO DATOS CLIMÁTICOS...</div></div>`;
+
+  const overallCls = clim.overall_signal === 'favorable' ? 'clim-favorable' : clim.overall_signal === 'stress' ? 'clim-stress' : 'clim-neutral';
+  const overallLabel = clim.overall_signal === 'favorable' ? 'FAVORABLE' : clim.overall_signal === 'stress' ? 'ESTRÉS' : 'NEUTRAL';
+
+  const zonesHtml = clim.zones.map(z => {
+    const stressCls = `stress-${z.stress_signal}`;
+    const criticalBadge = z.in_critical_period ? '<div class="critical-badge">PERÍODO CRÍTICO</div>' : '';
+    return `
+      <div class="climate-zone ${z.in_critical_period && z.stress_signal !== 'ok' ? 'critical' : ''}">
+        <div>
+          <div class="zone-name">${z.name}</div>
+          <div class="zone-role">${z.role}</div>
+          <div class="zone-stats">${z.temp_c}°C · ${z.precip_mm}mm (7d) · Pronóstico: ${z.precip_forecast_mm}mm</div>
+          ${criticalBadge}
+        </div>
+        <div class="zone-stress ${stressCls}">${z.stress_label}</div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="climate-section">
+      <div class="climate-header">
+        <span class="climate-title">☁ CONDICIONES PRÓXIMA COSECHA</span>
+        <span class="climate-overall ${overallCls}">${overallLabel}</span>
+      </div>
+      <div class="climate-zones">${zonesHtml}</div>
+    </div>`;
+}
+
+// ── NEWS RENDER ──────────────────────────────────────────────────────────────
+function renderNewsContent(data) {
+  if (!data || !data.articles || data.articles.length === 0) {
+    return '<div class="news-loading">Sin noticias recientes</div>';
+  }
+  const items = data.articles.map(a => {
+    const date = new Date(a.publishedAt).toLocaleDateString('es-AR', {day:'2-digit', month:'short'});
+    return `<a class="news-item" href="${a.url}" target="_blank" rel="noopener">
+      <div class="news-item-title">${a.title}</div>
+      <div class="news-item-meta">${a.source} · ${date}</div>
+    </a>`;
+  }).join('');
+  return `<div class="news-title">📰 ÚLTIMAS NOTICIAS</div><div class="news-list">${items}</div>`;
+}
+
+// ── SPARKLINE ─────────────────────────────────────────────────────────────────
+function drawSpark(canvas, data, color) {
+  const dpr = window.devicePixelRatio || 1;
+  const w   = canvas.offsetWidth;
+  const h   = canvas.offsetHeight;
+  canvas.width  = w * dpr;
+  canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pad = 4;
+
+  const pts = data.map((v, i) => ({
+    x: (i / (data.length - 1)) * (w - pad*2) + pad,
+    y: h - pad - ((v - min) / range) * (h - pad*2)
+  }));
+
+  // Fill
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, h);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, h);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0, color + '44');
+  grad.addColorStop(1, color + '08');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = 1.5;
+  ctx.stroke();
+
+  // End dot
+  const last = pts[pts.length - 1];
+  ctx.beginPath();
+  ctx.arc(last.x, last.y, 3, 0, Math.PI*2);
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  // Avg line
+  const avgY = h - pad - ((data.reduce((a,b)=>a+b,0)/data.length - min) / range) * (h - pad*2);
+  ctx.beginPath();
+  ctx.setLineDash([3,3]);
+  ctx.moveTo(pad, avgY);
+  ctx.lineTo(w - pad, avgY);
+  ctx.strokeStyle = '#a89880';
+  ctx.lineWidth   = 1;
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function formatNum(n) {
+  if (n >= 1000) return (n/1000).toFixed(1) + 'K';
+  if (n < 10)    return n.toFixed(3);
+  if (n < 100)   return n.toFixed(2);
+  return Math.round(n).toLocaleString('es-AR');
+}
+
+function showLoading() {
+  document.getElementById('grid').innerHTML = `
+    <div class="state-msg">
+      <div class="state-msg-title" style="animation: blink 1s infinite">OBTENIENDO DATOS DEL MERCADO...</div>
+      <div class="state-msg-sub">Consultando EIA y fuentes de precios</div>
+    </div>`;
+}
+
+function showError(msg) {
+  document.getElementById('grid').innerHTML = `
+    <div class="state-msg">
+      <div class="state-msg-title" style="color:var(--red)">ERROR CONECTANDO AL BACKEND</div>
+      <div class="state-msg-sub">
+        ${msg}<br><br>
+        Asegurate de tener el backend corriendo en el puerto 8001:<br>
+        <code>uvicorn main:app --reload --port 8001</code>
+      </div>
+    </div>`;
+}
+
+function filterCards(cat, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter = cat;
+  renderCards(cat);
+}
+
+function updateTs() {
+  document.getElementById('ts').textContent =
+    new Date().toLocaleDateString('es-AR', {day:'2-digit', month:'short', year:'numeric'}).toUpperCase() +
+    ' · ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+updateTs();
+setInterval(updateTs, 60000);
+fetchAll();
+setInterval(fetchAll, 5 * 60 * 1000);
+</script>
+</body>
+</html>
