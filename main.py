@@ -7,6 +7,7 @@ STOCKPILE — Backend API v3
 """
 
 from fastapi import FastAPI, HTTPException
+import time
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
@@ -368,6 +369,11 @@ GRAIN_ZONES = {
     ],
 }
 
+# Cache de clima — se renueva cada 6 horas para no saturar Open-Meteo
+_climate_cache = {}
+_climate_cache_time = {}
+CLIMATE_CACHE_TTL = 6 * 3600  # 6 horas en segundos
+
 CROP_CRITICAL_MONTHS = {
     "soy":   {"norte": [6, 7, 8], "sur": [12, 1, 2]},   # Jun-Ago EEUU, Dic-Feb ARG
     "corn":  {"norte": [6, 7, 8], "sur": [12, 1, 2]},
@@ -418,6 +424,17 @@ def classify_stress(temp_c: float, precip_7d: float, precip_forecast: float, com
 
 def fetch_zone_climate(zone: dict, commodity: str) -> ZoneClimate:
     lat, lon = zone["lat"], zone["lon"]
+    cache_key = f"{lat},{lon}"
+
+    # Verificar cache
+    if cache_key in _climate_cache:
+        age = time.time() - _climate_cache_time.get(cache_key, 0)
+        if age < CLIMATE_CACHE_TTL:
+            logger.info(f"Climate cache hit for {zone['name']}")
+            return _climate_cache[cache_key]
+
+    # Delay para no saturar Open-Meteo
+    time.sleep(1)
 
     # Open-Meteo: sin API key, completamente gratuito
     url = (
@@ -457,7 +474,7 @@ def fetch_zone_climate(zone: dict, commodity: str) -> ZoneClimate:
 
     stress_signal, stress_label = classify_stress(temp_c, precip_mm, precip_forecast_mm, commodity, in_critical)
 
-    return ZoneClimate(
+    result = ZoneClimate(
         name=zone["name"],
         lat=lat,
         lon=lon,
@@ -470,6 +487,9 @@ def fetch_zone_climate(zone: dict, commodity: str) -> ZoneClimate:
         stress_label=stress_label,
         in_critical_period=in_critical,
     )
+    _climate_cache[cache_key] = result
+    _climate_cache_time[cache_key] = time.time()
+    return result
 
 
 def fetch_grain_climate(commodity_id: str) -> GrainClimate:
