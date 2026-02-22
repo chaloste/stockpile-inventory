@@ -742,6 +742,154 @@
     letter-spacing: 1px;
   }
 
+
+  /* ── MODAL ALERTAS ── */
+  .alert-btn {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 14px 24px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    font-weight: 700;
+    cursor: pointer;
+    z-index: 100;
+    box-shadow: 4px 4px 0 #1a1410;
+    transition: transform 0.1s;
+  }
+  .alert-btn:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 #1a1410; }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--bg);
+    border: 3px solid var(--ink);
+    padding: 32px;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: 8px 8px 0 var(--ink);
+  }
+
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+
+  .modal-sub {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-bottom: 24px;
+  }
+
+  .modal-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  .modal-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid var(--border-dark);
+    background: white;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    margin-bottom: 16px;
+    outline: none;
+  }
+  .modal-input:focus { border-color: var(--ink); }
+
+  .commodity-checks {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    background: white;
+    transition: background 0.1s;
+  }
+  .check-item:hover { background: var(--surface2); }
+  .check-item input { cursor: pointer; }
+  .check-item span {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .btn-subscribe {
+    flex: 1;
+    background: var(--ink);
+    color: white;
+    border: none;
+    padding: 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-subscribe:hover { background: var(--accent); }
+
+  .btn-cancel {
+    background: transparent;
+    border: 2px solid var(--border-dark);
+    padding: 12px 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .modal-success {
+    text-align: center;
+    padding: 16px 0;
+  }
+  .modal-success-icon { font-size: 40px; margin-bottom: 12px; }
+  .modal-success-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+  .modal-success-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
 </style>
 </head>
 <body>
@@ -791,6 +939,27 @@
 
   <div class="grid" id="grid"></div>
 
+  <!-- MODAL ALERTAS -->
+  <div class="modal-overlay" id="alertModal">
+    <div class="modal">
+      <div id="modalContent">
+        <div class="modal-title">⚡ ACTIVAR ALERTAS</div>
+        <div class="modal-sub">RECIBÍ UN EMAIL CUANDO UNA SEÑAL CAMBIE</div>
+        <label class="modal-label">TU EMAIL</label>
+        <input class="modal-input" type="email" id="alertEmail" placeholder="tu@email.com">
+        <label class="modal-label">COMMODITIES A MONITOREAR</label>
+        <div class="commodity-checks" id="commodityChecks"></div>
+        <div class="modal-actions">
+          <button class="btn-subscribe" onclick="submitSubscription()">SUSCRIBIRME →</button>
+          <button class="btn-cancel" onclick="closeModal()">CANCELAR</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTÓN FLOTANTE -->
+  <button class="alert-btn" onclick="openModal()">⚡ ACTIVAR ALERTAS</button>
+
   <footer>
     <span class="footer-left">STOCKPILE INVENTORY v3.0 — Actualización automática cada 5 min</span>
     <div class="footer-sources">
@@ -806,7 +975,7 @@
 
 <script>
 // ── CONFIG ───────────────────────────────────────────────────────────────────
-const API_BASE = 'http://localhost:8001';
+const API_BASE = 'https://stockpile-inventory.onrender.com';
 
 let allData = [];
 let currentFilter = 'all';
@@ -1151,6 +1320,87 @@ updateTs();
 setInterval(updateTs, 60000);
 fetchAll();
 setInterval(fetchAll, 5 * 60 * 1000);
+
+// ── MODAL ALERTAS ─────────────────────────────────────────────────────────────
+const ALL_COMMODITIES = [
+  {id:'crude',    label:'Petróleo'},
+  {id:'gas',      label:'Gas Natural'},
+  {id:'soy',      label:'Soja'},
+  {id:'wheat',    label:'Trigo'},
+  {id:'corn',     label:'Maíz'},
+  {id:'copper',   label:'Cobre'},
+  {id:'gold',     label:'Oro'},
+  {id:'silver',   label:'Plata'},
+  {id:'aluminum', label:'Aluminio'},
+  {id:'lithium',  label:'Litio'},
+];
+
+function openModal() {
+  const checks = document.getElementById('commodityChecks');
+  checks.innerHTML = ALL_COMMODITIES.map(c => `
+    <label class="check-item">
+      <input type="checkbox" value="${c.id}" checked>
+      <span>${c.label}</span>
+    </label>`).join('');
+  document.getElementById('alertModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('alertModal').classList.remove('open');
+  // Reset
+  setTimeout(() => {
+    document.getElementById('modalContent').innerHTML = `
+      <div class="modal-title">⚡ ACTIVAR ALERTAS</div>
+      <div class="modal-sub">RECIBÍ UN EMAIL CUANDO UNA SEÑAL CAMBIE</div>
+      <label class="modal-label">TU EMAIL</label>
+      <input class="modal-input" type="email" id="alertEmail" placeholder="tu@email.com">
+      <label class="modal-label">COMMODITIES A MONITOREAR</label>
+      <div class="commodity-checks" id="commodityChecks"></div>
+      <div class="modal-actions">
+        <button class="btn-subscribe" onclick="submitSubscription()">SUSCRIBIRME →</button>
+        <button class="btn-cancel" onclick="closeModal()">CANCELAR</button>
+      </div>`;
+    openModal();
+    document.getElementById('alertModal').classList.remove('open');
+  }, 300);
+}
+
+async function submitSubscription() {
+  const email = document.getElementById('alertEmail').value.trim();
+  if (!email || !email.includes('@')) {
+    document.getElementById('alertEmail').style.borderColor = 'var(--accent)';
+    return;
+  }
+  const checked = [...document.querySelectorAll('#commodityChecks input:checked')].map(i => i.value);
+  if (checked.length === 0) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/subscribe`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, commodities: checked}),
+    });
+    if (!res.ok) throw new Error();
+    document.getElementById('modalContent').innerHTML = `
+      <div class="modal-success">
+        <div class="modal-success-icon">✅</div>
+        <div class="modal-success-title">¡SUSCRIPTO!</div>
+        <div class="modal-success-text">
+          Vas a recibir alertas en<br><strong>${email}</strong><br><br>
+          para ${checked.length} commodities seleccionados.
+        </div>
+      </div>`;
+    setTimeout(closeModal, 3000);
+  } catch(e) {
+    alert('Error al suscribirse. Intentá de nuevo.');
+  }
+}
+
+// Cerrar modal clickeando fuera
+document.getElementById('alertModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
 </script>
 </body>
 </html>
