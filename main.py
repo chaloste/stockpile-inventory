@@ -6,8 +6,10 @@ STOCKPILE — Backend API v3
 - Metales: precios futuros yfinance (proxy)
 """
 
-from fastapi import FastAPI, HTTPException
+import os
 import time
+import json
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
@@ -802,8 +804,7 @@ def get_news(commodity_id: str):
 
 # ── ALERTAS ───────────────────────────────────────────────────────────────────
 
-import json
-import os
+
 
 SENDGRID_API_KEY  = os.environ.get("SENDGRID_API_KEY", "")
 SENDGRID_FROM     = os.environ.get("SENDGRID_FROM", "")
