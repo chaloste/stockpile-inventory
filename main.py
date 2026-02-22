@@ -28,8 +28,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-EIA_API_KEY  = "cj21fTFCc9IZm1YvF4WP2cvOuSH9eIeQDkvDfwyK"
-USDA_API_KEY = "1D9FB410-B3F4-3935-AD81-A5C8584B2BA0"
+EIA_API_KEY  = os.environ.get("EIA_API_KEY", "")
+USDA_API_KEY = os.environ.get("USDA_API_KEY", "")
 EIA_BASE     = "https://api.eia.gov/v2"
 USDA_BASE    = "https://quickstats.nass.usda.gov/api/api_GET"
 
@@ -310,7 +310,21 @@ def fetch_price(commodity_id: str) -> CommodityData:
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "3.0.0", "timestamp": datetime.now().isoformat()}
+    cache_size = len(_general_cache)
+    return {
+        "status": "ok",
+        "version": "4.0.0",
+        "timestamp": datetime.now().isoformat(),
+        "cache_entries": cache_size,
+    }
+
+@app.post("/cache/clear")
+def clear_cache():
+    _general_cache.clear()
+    _general_cache_time.clear()
+    _climate_cache.clear()
+    _climate_cache_time.clear()
+    return {"status": "ok", "message": "Cache limpiado"}
 
 
 @app.get("/commodities", response_model=List[CommodityData])
@@ -373,6 +387,24 @@ GRAIN_ZONES = {
 _climate_cache = {}
 _climate_cache_time = {}
 CLIMATE_CACHE_TTL = 6 * 3600  # 6 horas en segundos
+
+# Cache general — EIA, USDA, precios y noticias
+_general_cache = {}
+_general_cache_time = {}
+GENERAL_CACHE_TTL = 30 * 60  # 30 minutos
+
+def cache_get(key: str):
+    if key in _general_cache:
+        age = time.time() - _general_cache_time.get(key, 0)
+        if age < GENERAL_CACHE_TTL:
+            logger.info(f"Cache hit: {key}")
+            return _general_cache[key]
+    return None
+
+def cache_set(key: str, value):
+    _general_cache[key] = value
+    _general_cache_time[key] = time.time()
+    return value
 
 CROP_CRITICAL_MONTHS = {
     "soy":   {"norte": [6, 7, 8], "sur": [12, 1, 2]},   # Jun-Ago EEUU, Dic-Feb ARG
@@ -547,7 +579,7 @@ def get_all_climate():
 
 # ── NOTICIAS ──────────────────────────────────────────────────────────────────
 
-NEWS_API_KEY = "bf037cc81d33433c8e32a7791b541b4d"
+NEWS_API_KEY = os.environ.get("NEWS_API_KEY", "")
 NEWS_BASE    = "https://newsapi.org/v2/everything"
 
 COMMODITY_KEYWORDS = {
@@ -579,6 +611,8 @@ class CommodityNews(BaseModel):
 
 
 def fetch_news(commodity_id: str) -> CommodityNews:
+    cached = cache_get(f"news_{commodity_id}")
+    if cached: return cached
     keywords = COMMODITY_KEYWORDS.get(commodity_id, commodity_id)
     logger.info(f"Fetching news for {commodity_id}")
 
@@ -606,11 +640,12 @@ def fetch_news(commodity_id: str) -> CommodityNews:
                 description=(a.get("description") or "")[:200],
             ))
 
-    return CommodityNews(
+    result = CommodityNews(
         commodity_id=commodity_id,
         articles=articles,
         lastUpdated=datetime.now().isoformat(),
     )
+    return cache_set(f"news_{commodity_id}", result)
 
 
 @app.get("/news/{commodity_id}", response_model=CommodityNews)
@@ -619,3 +654,201 @@ def get_news(commodity_id: str):
     if commodity_id not in all_ids:
         raise HTTPException(status_code=404, detail=f"'{commodity_id}' no encontrado")
     return fetch_news(commodity_id)
+
+
+# ── ALERTAS ───────────────────────────────────────────────────────────────────
+
+import json
+import os
+
+SENDGRID_API_KEY  = os.environ.get("SENDGRID_API_KEY", "")
+SENDGRID_FROM     = os.environ.get("SENDGRID_FROM", "")
+SENDGRID_FROM_NAME = "Stockpile Inventory"
+SUBSCRIBERS_FILE  = "subscribers.json"
+SIGNALS_FILE      = "last_signals.json"
+
+
+class SubscribeRequest(BaseModel):
+    email: str
+    commodities: List[str]  # lista de IDs, ej: ["crude", "soy", "gold"]
+
+
+class UnsubscribeRequest(BaseModel):
+    email: str
+
+
+def load_json(path: str, default):
+    if os.path.exists(path):
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return default
+
+
+def save_json(path: str, data):
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+def send_alert_email(to_email: str, alerts: list):
+    """Envía email con las alertas de señal via SendGrid."""
+    rows = ""
+    for a in alerts:
+        color = "#c0392b" if a["new_signal"] == "high" else "#27ae60" if a["new_signal"] == "low" else "#d4a017"
+        label = "ALTO" if a["new_signal"] == "high" else "BAJO" if a["new_signal"] == "low" else "NORMAL"
+        prev  = "ALTO" if a["old_signal"] == "high" else "BAJO" if a["old_signal"] == "low" else "NORMAL"
+        rows += f"""
+        <tr>
+          <td style="padding:12px 16px;border-bottom:1px solid #eee;font-family:monospace;font-weight:bold">{a['name']}</td>
+          <td style="padding:12px 16px;border-bottom:1px solid #eee;font-family:monospace;color:#888">{prev}</td>
+          <td style="padding:12px 16px;border-bottom:1px solid #eee">
+            <span style="background:{color};color:white;padding:3px 10px;font-family:monospace;font-size:12px;font-weight:bold">{label}</span>
+          </td>
+          <td style="padding:12px 16px;border-bottom:1px solid #eee;font-family:monospace;font-size:13px">{a['value']} {a['unit']}</td>
+        </tr>"""
+
+    html = f"""
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#f2ede6">
+      <div style="background:#1a1410;padding:24px 32px">
+        <div style="font-family:monospace;font-size:11px;color:#8a7d6e;letter-spacing:3px">GLOBAL COMMODITY STOCK MONITOR</div>
+        <div style="font-size:28px;font-weight:900;color:white;margin-top:4px">STOCKPILE <span style="color:#c0392b">INVENTORY</span></div>
+      </div>
+      <div style="padding:32px">
+        <h2 style="font-size:18px;font-weight:800;margin-bottom:8px">⚠️ Cambio de señal detectado</h2>
+        <p style="color:#666;margin-bottom:24px">Los siguientes commodities cambiaron su señal de inventario:</p>
+        <table style="width:100%;border-collapse:collapse;background:white">
+          <thead>
+            <tr style="background:#1a1410;color:white">
+              <th style="padding:10px 16px;text-align:left;font-family:monospace;font-size:11px">COMMODITY</th>
+              <th style="padding:10px 16px;text-align:left;font-family:monospace;font-size:11px">ANTERIOR</th>
+              <th style="padding:10px 16px;text-align:left;font-family:monospace;font-size:11px">NUEVA SEÑAL</th>
+              <th style="padding:10px 16px;text-align:left;font-family:monospace;font-size:11px">VALOR ACTUAL</th>
+            </tr>
+          </thead>
+          <tbody>{rows}</tbody>
+        </table>
+        <div style="margin-top:24px">
+          <a href="https://playful-torrone-1a3563.netlify.app" 
+             style="background:#c0392b;color:white;padding:12px 24px;text-decoration:none;font-weight:bold;font-family:monospace;letter-spacing:1px">
+            VER DASHBOARD →
+          </a>
+        </div>
+        <p style="color:#999;font-size:11px;margin-top:32px;font-family:monospace">
+          Recibís este email porque estás suscripto a alertas de Stockpile Inventory.<br>
+          Para desuscribirte respondé este email con "UNSUB".
+        </p>
+      </div>
+    </div>"""
+
+    payload = {
+        "personalizations": [{"to": [{"email": to_email}]}],
+        "from": {"email": SENDGRID_FROM, "name": SENDGRID_FROM_NAME},
+        "subject": f"⚠️ Stockpile Alert — {len(alerts)} señal{'es' if len(alerts) > 1 else ''} cambiada{'s' if len(alerts) > 1 else ''}",
+        "content": [{"type": "text/html", "value": html}],
+    }
+
+    with httpx.Client(timeout=15) as client:
+        resp = client.post(
+            "https://api.sendgrid.com/v3/mail/send",
+            json=payload,
+            headers={"Authorization": f"Bearer {SENDGRID_API_KEY}"},
+        )
+        resp.raise_for_status()
+        logger.info(f"Alert email sent to {to_email}")
+
+
+@app.post("/subscribe")
+def subscribe(req: SubscribeRequest):
+    """Suscribir email a alertas de commodities."""
+    subscribers = load_json(SUBSCRIBERS_FILE, {})
+    subscribers[req.email] = {
+        "email": req.email,
+        "commodities": req.commodities,
+        "created": datetime.now().isoformat(),
+    }
+    save_json(SUBSCRIBERS_FILE, subscribers)
+    logger.info(f"New subscriber: {req.email} → {req.commodities}")
+    return {"status": "ok", "message": f"Suscripto a {len(req.commodities)} commodities"}
+
+
+@app.delete("/unsubscribe")
+def unsubscribe(req: UnsubscribeRequest):
+    subscribers = load_json(SUBSCRIBERS_FILE, {})
+    if req.email in subscribers:
+        del subscribers[req.email]
+        save_json(SUBSCRIBERS_FILE, subscribers)
+    return {"status": "ok", "message": "Desuscripto correctamente"}
+
+
+@app.get("/subscribers/count")
+def subscriber_count():
+    subscribers = load_json(SUBSCRIBERS_FILE, {})
+    return {"count": len(subscribers)}
+
+
+@app.post("/alerts/check")
+def check_and_send_alerts():
+    """Compara señales actuales con las anteriores y manda emails si cambiaron."""
+    last_signals = load_json(SIGNALS_FILE, {})
+    
+    # Obtener señales actuales
+    current = {}
+    all_ids = list(EIA_CONFIG.keys()) + list(USDA_CONFIG.keys()) + list(PRICE_CONFIG.keys())
+    
+    for cid in all_ids:
+        try:
+            if cid in EIA_CONFIG:
+                data = fetch_eia(cid)
+            elif cid in USDA_CONFIG:
+                data = fetch_usda(cid)
+            else:
+                data = fetch_price(cid)
+            current[cid] = {
+                "signal": data.signal,
+                "name": data.name,
+                "value": data.current,
+                "unit": data.unit,
+            }
+        except Exception as e:
+            logger.error(f"Alert check failed for {cid}: {e}")
+
+    # Guardar señales actuales
+    save_json(SIGNALS_FILE, current)
+
+    # Detectar cambios
+    changes = {}
+    for cid, curr in current.items():
+        prev = last_signals.get(cid, {})
+        if prev and prev.get("signal") != curr["signal"]:
+            changes[cid] = {
+                "name": curr["name"],
+                "old_signal": prev["signal"],
+                "new_signal": curr["signal"],
+                "value": round(curr["value"], 2),
+                "unit": curr["unit"],
+            }
+
+    if not changes:
+        return {"status": "ok", "alerts_sent": 0, "message": "Sin cambios de señal"}
+
+    # Notificar suscriptores
+    subscribers = load_json(SUBSCRIBERS_FILE, {})
+    emails_sent = 0
+
+    for email, sub in subscribers.items():
+        relevant = [v for k, v in changes.items() if k in sub.get("commodities", [])]
+        if relevant:
+            try:
+                send_alert_email(email, relevant)
+                emails_sent += 1
+            except Exception as e:
+                logger.error(f"Failed to send alert to {email}: {e}")
+
+    return {
+        "status": "ok",
+        "alerts_sent": emails_sent,
+        "signal_changes": len(changes),
+        "changed": list(changes.keys()),
+    }
